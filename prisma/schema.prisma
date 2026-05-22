@@ -1,0 +1,72 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model GuestUser {
+  id           String       @id @default(uuid())
+  guestToken   String       @unique @map("guest_token")
+  optionalName String?      @map("optional_name")
+  createdAt    DateTime     @default(now()) @map("created_at")
+  generations  Generation[]
+
+  @@map("guest_users")
+}
+
+model Category {
+  id           String   @id @default(uuid())
+  name         String
+  slug         String   @unique
+  thumbnailUrl String?  @map("thumbnail_url")
+  createdAt    DateTime @default(now()) @map("created_at")
+  dresses      Dress[]
+
+  @@map("categories")
+}
+
+model Dress {
+  id          String       @id @default(uuid())
+  title       String
+  description String?
+  imageUrl    String       @map("image_url")
+  tags        String[]
+  createdAt   DateTime     @default(now()) @map("created_at")
+  
+  categoryId  String       @map("category_id")
+  category    Category     @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  generations Generation[]
+
+  @@map("dresses")
+}
+
+model Generation {
+  id                 String   @id @default(uuid())
+  guestUserId        String   @map("guest_user_id")
+  guestUser          GuestUser @relation(fields: [guestUserId], references: [id], onDelete: Cascade)
+  
+  dressId            String   @map("dress_id")
+  dress              Dress    @relation(fields: [dressId], references: [id], onDelete: Cascade)
+  
+  originalImageUrl   String   @map("original_image_url")
+  generatedImageUrl  String?  @map("generated_image_url")
+  
+  status             String   @default("PENDING") // PENDING, PROCESSING, COMPLETED, FAILED
+  replicateId        String?  @map("replicate_id")
+  error              String?
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  @@map("generations")
+}
+
+model Admin {
+  id        String   @id @default(uuid())
+  username  String   @unique
+  password  String   // Hashed password
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("admins")
+}

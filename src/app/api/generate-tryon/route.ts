@@ -6,7 +6,7 @@ import { triggerTryOn } from '@/lib/replicate';
 
 export async function POST(request: Request) {
   try {
-    const { guestToken, humanImage, dressId, optionalName } = await request.json();
+    const { guestToken, humanImage, dressId, optionalName, simulate } = await request.json();
 
     if (!guestToken || !humanImage || !dressId) {
       return NextResponse.json(
@@ -56,11 +56,20 @@ export async function POST(request: Request) {
     // 3. Trigger Replicate AI prediction (runs synchronously or mock)
     let triggerResult;
     try {
-      triggerResult = await triggerTryOn({
-        customerImageUrl: uploadedHumanUrl,
-        dressImageUrl: dressImageUrl,
-        dressTitle: dressTitle,
-      });
+      if (simulate === true) {
+        console.log('⚡ [Try-On API] Simulate flag is active. Bypassing Replicate.');
+        const mockId = `mock_${Math.random().toString(36).substring(2, 11)}`;
+        triggerResult = {
+          id: mockId,
+          status: 'starting',
+        };
+      } else {
+        triggerResult = await triggerTryOn({
+          customerImageUrl: uploadedHumanUrl,
+          dressImageUrl: dressImageUrl,
+          dressTitle: dressTitle,
+        });
+      }
     } catch (repErr) {
       console.error('❌ [Try-On API] Replicate AI trigger failed:', repErr);
       return NextResponse.json(

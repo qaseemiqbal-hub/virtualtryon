@@ -69,6 +69,8 @@ export default function FashionStudio() {
   const [generationStatus, setGenerationStatus] = useState<string>('PENDING');
   const [generatedResult, setGeneratedResult] = useState<string | null>(null);
   const [aiTipIndex, setAiTipIndex] = useState<number>(0);
+  const [demoMode, setDemoMode] = useState<boolean>(false);
+  const [elapsedSeconds, setElapsedSeconds] = useState<number>(0);
 
   // Recent try-ons shelf
   const [recentTryOns, setRecentTryOns] = useState<any[]>([]);
@@ -83,6 +85,31 @@ export default function FashionStudio() {
     "Preserving skin tone, hairstyle, and shadows...",
     "Applying high-definition fabric textures..."
   ];
+
+  // Timer to track generation elapsed time
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (isGenerating) {
+      setElapsedSeconds(0);
+      timer = setInterval(() => {
+        setElapsedSeconds((prev) => prev + 1);
+      }, 1000);
+    } else {
+      setElapsedSeconds(0);
+    }
+    return () => clearInterval(timer);
+  }, [isGenerating]);
+
+  const getDetailedStatus = () => {
+    if (demoMode) {
+      return "⚡ Running High-Speed Simulation...";
+    }
+    if (elapsedSeconds < 8) return "Securing AI Studio Connection...";
+    if (elapsedSeconds < 25) return "Allocating high-speed Nvidia A100 GPU...";
+    if (elapsedSeconds < 55) return "GPU Cold Start: Booting container (can take 1-2 min)...";
+    if (elapsedSeconds < 90) return "Downloading SDXL VTON weights (15GB)...";
+    return "Fusing garment details onto body (almost ready)...";
+  };
 
   // 1. Session Setup on Load
   useEffect(() => {
@@ -330,6 +357,7 @@ export default function FashionStudio() {
           humanImage: uploadedImage,
           dressId: selectedDress.id,
           optionalName: guestName,
+          simulate: demoMode,
         }),
       });
 
@@ -713,9 +741,9 @@ export default function FashionStudio() {
                           )}
                           <div className="absolute inset-0 scanner-line" />
                           
-                          <div className="relative z-10 flex flex-col items-center gap-3">
+                          <div className="relative z-10 flex flex-col items-center gap-3 p-4 text-center">
                             <div className="h-10 w-10 rounded-full border-t-2 border-r-2 border-purple-500 animate-spin" />
-                            <p className="text-white font-bold text-sm tracking-wide mt-2">Sewing Garment...</p>
+                            <p className="text-white font-bold text-sm tracking-wide mt-2">{getDetailedStatus()}</p>
                             <p className="text-[11px] text-neutral-400 italic max-w-[200px]">
                               {aiTips[aiTipIndex]}
                             </p>
@@ -775,21 +803,50 @@ export default function FashionStudio() {
 
                 {/* Additional custom name capture for the session */}
                 {!isGenerating && !generatedResult && (
-                  <div className="bg-white/5 border border-white/5 p-4 rounded-xl flex flex-col gap-2">
-                    <label className="text-xs font-bold text-neutral-300 uppercase tracking-wider flex items-center gap-1">
-                      <User className="h-3 w-3 text-purple-400" />
-                      Try-On Guest Name
-                    </label>
-                    <input 
-                      type="text" 
-                      placeholder="Enter your name (optional)..."
-                      value={guestName}
-                      onChange={(e) => {
-                        setGuestName(e.target.value);
-                        localStorage.setItem('aura_guest_name', e.target.value);
-                      }}
-                      className="bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500/50"
-                    />
+                  <div className="flex flex-col gap-4">
+                    <div className="bg-white/5 border border-white/5 p-4 rounded-xl flex flex-col gap-2">
+                      <label className="text-xs font-bold text-neutral-300 uppercase tracking-wider flex items-center gap-1">
+                        <User className="h-3 w-3 text-purple-400" />
+                        Try-On Guest Name
+                      </label>
+                      <input 
+                        type="text" 
+                        placeholder="Enter your name (optional)..."
+                        value={guestName}
+                        onChange={(e) => {
+                          setGuestName(e.target.value);
+                          localStorage.setItem('aura_guest_name', e.target.value);
+                        }}
+                        className="bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500/50"
+                      />
+                    </div>
+
+                    {/* High-Speed Demo Mode Toggle */}
+                    <div className="bg-purple-950/10 border border-purple-500/15 p-4 rounded-xl flex items-center justify-between">
+                      <div className="flex flex-col gap-0.5 max-w-[280px]">
+                        <span className="text-xs font-bold text-purple-300 uppercase tracking-wider flex items-center gap-1.5">
+                          <Sparkles className="h-3.5 w-3.5" />
+                          ⚡ High-Speed Demo Mode
+                        </span>
+                        <span className="text-[10px] text-neutral-400 font-light leading-snug">
+                          Bypass Replicate API queue and simulate authentic try-on locally in 5 seconds.
+                        </span>
+                      </div>
+                      
+                      <button
+                        type="button"
+                        onClick={() => setDemoMode(!demoMode)}
+                        className={`w-11 h-6 rounded-full p-1 transition-colors duration-300 focus:outline-none ${
+                          demoMode ? 'bg-purple-600' : 'bg-neutral-800'
+                        }`}
+                      >
+                        <div
+                          className={`w-4 h-4 rounded-full bg-white shadow-md transform transition-transform duration-300 ${
+                            demoMode ? 'translate-x-5' : 'translate-x-0'
+                          }`}
+                        />
+                      </button>
+                    </div>
                   </div>
                 )}
 

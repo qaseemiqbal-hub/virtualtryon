@@ -217,5 +217,11 @@ export const mockDb = {
       return globalForMockDb.mockGenerations[idx];
     }
     return null;
+  },
+
+  async deleteDresses(ids: string[]) {
+    globalForMockDb.mockDresses = globalForMockDb.mockDresses.filter(d => !ids.includes(d.id));
+    globalForMockDb.mockGenerations = globalForMockDb.mockGenerations.filter(g => !ids.includes(g.dressId));
+    return true;
   }
 };

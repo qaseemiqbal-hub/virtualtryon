@@ -21,7 +21,8 @@ import {
   CheckCircle,
   XCircle,
   FileText,
-  Home
+  Home,
+  Trash2
 } from 'lucide-react';
 
 interface Category {
@@ -105,6 +106,13 @@ export default function AdminDashboard() {
   const [bulkUploadProgress, setBulkUploadProgress] = useState(0);
   const [bulkCategoryId, setBulkCategoryId] = useState('');
   const bulkFileInputRef = useRef<HTMLInputElement>(null);
+
+  const [selectedDressIds, setSelectedDressIds] = useState<string[]>([]);
+
+  // Clear selections on tab swap
+  useEffect(() => {
+    setSelectedDressIds([]);
+  }, [activeTab]);
 
   const router = useRouter();
 
@@ -354,6 +362,38 @@ export default function AdminDashboard() {
     } catch (err) {
       console.error(err);
       setDressError(`An error occurred during bulk upload. Successfully saved ${successCount} outfits.`);
+    } finally {
+      setDressSubmitting(false);
+    }
+  };
+
+  // Bulk Delete outfits from Neon & MockDB
+  const handleBulkDeleteDresses = async () => {
+    if (selectedDressIds.length === 0) return;
+
+    const confirmed = window.confirm(`Are you sure you want to delete the selected ${selectedDressIds.length} outfits? This will also remove all guest try-on sessions associated with them.`);
+    if (!confirmed) return;
+
+    setDressSubmitting(true);
+    try {
+      const res = await fetch('/api/dresses', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: selectedDressIds }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        // Filter out of local dresses inventory
+        setDresses(prev => prev.filter(d => !selectedDressIds.includes(d.id)));
+        // Filter out related generations from the feed
+        setGenerations(prev => prev.filter(g => !selectedDressIds.includes(g.dressId)));
+        setSelectedDressIds([]);
+      } else {
+        alert(data.message || 'Failed to delete outfits.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Server error while deleting outfits.');
     } finally {
       setDressSubmitting(false);
     }
@@ -637,18 +677,49 @@ export default function AdminDashboard() {
           {/* TAB 2: OUTFIT MANAGER (DRESSES CRUD) */}
           {activeTab === 'dresses' && (
             <div className="flex flex-col gap-4">
-              <div className="flex justify-between items-center border-b border-white/5 pb-3">
-                <h3 className="text-sm font-bold tracking-wider uppercase text-neutral-300">Outfit Inventory</h3>
-                <button
-                  onClick={() => {
-                    setDressError(null);
-                    setShowDressModal(true);
-                  }}
-                  className="bg-gradient-to-r from-purple-600 to-pink-500 text-[10px] font-bold tracking-wider uppercase px-4 py-2.5 rounded-xl text-white shadow-lg flex items-center gap-1.5"
-                >
-                  <Plus className="h-4 w-4" />
-                  Add New Outfit
-                </button>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-white/5 pb-3 gap-3">
+                <div className="flex items-center gap-3">
+                  <h3 className="text-sm font-bold tracking-wider uppercase text-neutral-300">Outfit Inventory</h3>
+                  {dresses.length > 0 && (
+                    <button
+                      onClick={() => {
+                        if (selectedDressIds.length === dresses.length) {
+                          setSelectedDressIds([]);
+                        } else {
+                          setSelectedDressIds(dresses.map(d => d.id));
+                        }
+                      }}
+                      className="bg-white/5 border border-white/10 hover:bg-white/10 text-neutral-400 hover:text-white text-[9px] font-bold tracking-wider uppercase px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer"
+                    >
+                      {selectedDressIds.length === dresses.length ? 'Deselect All' : 'Select All'}
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-3">
+                  {selectedDressIds.length > 0 && (
+                    <button
+                      onClick={handleBulkDeleteDresses}
+                      disabled={dressSubmitting}
+                      className="bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 disabled:opacity-50 text-[10px] font-bold tracking-wider uppercase px-4 py-2.5 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      Delete Selected ({selectedDressIds.length})
+                    </button>
+                  )}
+
+                  <button
+                    onClick={() => {
+                      setDressError(null);
+                      setUploadMode('single');
+                      setShowDressModal(true);
+                    }}
+                    className="bg-gradient-to-r from-purple-600 to-pink-500 text-[10px] font-bold tracking-wider uppercase px-4 py-2.5 rounded-xl text-white shadow-lg flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add New Outfit
+                  </button>
+                </div>
               </div>
 
               {dresses.length === 0 ? (
@@ -657,29 +728,61 @@ export default function AdminDashboard() {
                 </div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                  {dresses.map((dress) => (
-                    <div key={dress.id} className="glass-panel border border-white/5 rounded-xl overflow-hidden flex flex-col h-full">
-                      <div className="relative aspect-[3/4] bg-neutral-950">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={dress.imageUrl} alt={dress.title} className="w-full h-full object-cover object-top" />
-                      </div>
-                      <div className="p-3.5 flex-1 flex flex-col justify-between">
-                        <div>
-                          <span className="text-[9px] text-purple-400 font-bold uppercase tracking-wider block mb-1">
-                            {dress.category?.name || 'Exclusive'}
-                          </span>
-                          <h4 className="text-white text-xs font-bold truncate">{dress.title}</h4>
+                  {dresses.map((dress) => {
+                    const isSelected = selectedDressIds.includes(dress.id);
+                    return (
+                      <div 
+                        key={dress.id} 
+                        onClick={() => {
+                          if (isSelected) {
+                            setSelectedDressIds(prev => prev.filter(id => id !== dress.id));
+                          } else {
+                            setSelectedDressIds(prev => [...prev, dress.id]);
+                          }
+                        }}
+                        className={`glass-panel border rounded-xl overflow-hidden flex flex-col h-full cursor-pointer relative group transition-all duration-300 ${
+                          isSelected 
+                            ? 'border-purple-500/80 shadow-md shadow-purple-500/10 ring-1 ring-purple-500/20' 
+                            : 'border-white/5 hover:border-white/15'
+                        }`}
+                      >
+                        {/* Selector check indicator */}
+                        <div className="absolute top-2.5 left-2.5 z-10">
+                          <div className={`h-4.5 w-4.5 rounded-full border flex items-center justify-center transition-all ${
+                            isSelected 
+                              ? 'bg-purple-500 border-purple-400 text-white' 
+                              : 'bg-black/60 border-white/20 group-hover:border-white/40'
+                          }`}>
+                            {isSelected && (
+                              <svg className="h-3 w-3 fill-current" viewBox="0 0 20 20">
+                                <path d="M0 11l2-2 5 5L18 3l2 2L7 18z" />
+                              </svg>
+                            )}
+                          </div>
                         </div>
-                        <div className="flex flex-wrap gap-1 mt-2.5">
-                          {dress.tags.slice(0, 2).map((t, idx) => (
-                            <span key={idx} className="bg-white/5 text-[9px] text-neutral-400 font-semibold px-2 py-0.5 rounded uppercase tracking-wider">
-                              {t}
+
+                        <div className="relative aspect-[3/4] bg-neutral-950 overflow-hidden">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={dress.imageUrl} alt={dress.title} className="w-full h-full object-cover object-top transition-transform duration-500 group-hover:scale-105" />
+                        </div>
+                        <div className="p-3.5 flex-1 flex flex-col justify-between">
+                          <div>
+                            <span className="text-[9px] text-purple-400 font-bold uppercase tracking-wider block mb-1">
+                              {dress.category?.name || 'Exclusive'}
                             </span>
-                          ))}
+                            <h4 className="text-white text-xs font-bold truncate">{dress.title}</h4>
+                          </div>
+                          <div className="flex flex-wrap gap-1 mt-2.5">
+                            {dress.tags.slice(0, 2).map((t, idx) => (
+                              <span key={idx} className="bg-white/5 text-[9px] text-neutral-400 font-semibold px-2 py-0.5 rounded uppercase tracking-wider">
+                                {t}
+                              </span>
+                            ))}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

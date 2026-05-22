@@ -114,3 +114,39 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: false, message: 'Internal server error' }, { status: 500 });
   }
 }
+
+export async function DELETE(request: Request) {
+  const isAuthenticated = await isAdminAuthenticated();
+  if (!isAuthenticated) {
+    return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
+  }
+
+  try {
+    const { ids } = await request.json();
+
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return NextResponse.json(
+        { success: false, message: 'Array of dress IDs ("ids") is required' },
+        { status: 400 }
+      );
+    }
+
+    try {
+      await prisma.dress.deleteMany({
+        where: {
+          id: {
+            in: ids,
+          },
+        },
+      });
+      return NextResponse.json({ success: true, message: `Successfully deleted ${ids.length} outfits` });
+    } catch (prismaError) {
+      console.log('⚠️ [Dresses API] Prisma delete failed. Deleting from MockDB:', prismaError);
+      await mockDb.deleteDresses(ids);
+      return NextResponse.json({ success: true, message: `Successfully deleted ${ids.length} outfits from MockDB`, isMock: true });
+    }
+  } catch (error) {
+    console.error('❌ [Dresses API] DELETE error:', error);
+    return NextResponse.json({ success: false, message: 'Internal server error' }, { status: 500 });
+  }
+}

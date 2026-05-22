@@ -1,15 +1,7 @@
-import Replicate from 'replicate';
+import { uploadImage } from './cloudinary';
 
-const isReplicateConfigured = !!process.env.REPLICATE_API_TOKEN;
-
-export const replicateClient = isReplicateConfigured
-  ? new Replicate({
-      auth: process.env.REPLICATE_API_TOKEN,
-    })
-  : null;
-
-// Replicate IDM-VTON model version hash
-export const IDM_VTON_VERSION = "0513734a452173b8173e907e3a59d19a36266e55b48528559432bd21c7d7e985";
+// FASHN.ai API Key configuration
+const isFashnConfigured = !!process.env.FASHN_API_KEY;
 
 export interface TryOnInput {
   customerImageUrl: string;
@@ -19,8 +11,8 @@ export interface TryOnInput {
 }
 
 /**
- * Triggers the virtual try-on prediction asynchronously.
- * Returns prediction ID and initial status.
+ * Triggers the virtual try-on prediction asynchronously via FASHN.ai Direct API.
+ * Returns the prediction/run ID and initial status.
  */
 export async function triggerTryOn({
   customerImageUrl,
@@ -28,8 +20,8 @@ export async function triggerTryOn({
   dressTitle,
   category = 'dresses',
 }: TryOnInput) {
-  if (!replicateClient) {
-    console.log('⚠️ [Replicate] Token not found. Generating simulation job ID.');
+  if (!isFashnConfigured) {
+    console.log('⚠️ [FASHN.ai] API Key not found. Generating simulation job ID.');
     const mockId = `mock_${Math.random().toString(36).substring(2, 11)}`;
     return {
       id: mockId,
@@ -38,30 +30,49 @@ export async function triggerTryOn({
   }
 
   try {
-    const prediction = await replicateClient.predictions.create({
-      version: IDM_VTON_VERSION,
-      input: {
-        crop: true,
-        category: category,
-        human_img: customerImageUrl,
-        garm_img: dressImageUrl,
-        garment_des: `Generate a realistic virtual fashion try-on image of this ${dressTitle}. Preserve facial identity, hairstyle, body proportions, and skin tone while naturally fitting the garment with realistic lighting, shadows, folds, and fabric texture.`,
+    const fashnCategory = category === 'dresses' ? 'dresses' : category === 'lower_body' ? 'lower_body' : 'upper_body';
+    
+    console.log(`🚀 [FASHN.ai] Launching try-on run for dress: "${dressTitle}"`);
+    const res = await fetch('https://api.fashn.ai/v1/run', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.FASHN_API_KEY}`,
+        'Content-Type': 'application/json',
       },
+      body: JSON.stringify({
+        model_name: 'tryon-v1.6', // ultra-fast & highly efficient V1.6 model
+        inputs: {
+          product_image: dressImageUrl,
+          model_image: customerImageUrl,
+          category: fashnCategory,
+        },
+      }),
     });
 
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`FASHN.ai API initiation failed: ${res.status} - ${errText}`);
+    }
+
+    const data = await res.json();
+    if (!data.id) {
+      throw new Error(`Invalid response from FASHN.ai: ${JSON.stringify(data)}`);
+    }
+
+    console.log(`✓ [FASHN.ai] Run initiated successfully. ID: ${data.id}, status: ${data.status}`);
     return {
-      id: prediction.id,
-      status: prediction.status,
+      id: data.id,
+      status: data.status || 'starting',
     };
   } catch (error) {
-    console.error('❌ [Replicate] Failed to trigger try-on:', error);
+    console.error('❌ [FASHN.ai] Failed to trigger try-on:', error);
     throw error;
   }
 }
 
 /**
- * Checks the status of an ongoing try-on prediction.
- * For simulated predictions (starting with `mock_`), it uses time-based progression.
+ * Checks the status of an ongoing FASHN.ai try-on prediction.
+ * Supports simulated predictions (starting with `mock_`) using time-based progression.
  */
 export async function getPredictionStatus(predictionId: string, createdAt: Date, dressImageUrl: string) {
   if (predictionId.startsWith('mock_')) {
@@ -72,10 +83,6 @@ export async function getPredictionStatus(predictionId: string, createdAt: Date,
     } else if (elapsedSeconds < 5) {
       return { status: 'processing', output: null };
     } else {
-      // Return a simulated high-quality try-on image!
-      // In a real mock, we can return the dress image directly, or a gorgeous look,
-      // or we can use a premium composited placeholder to make it look super realistic
-      // Let's use the dress image as a realistic try-on rendering representation
       return { 
         status: 'succeeded', 
         output: dressImageUrl 
@@ -83,26 +90,50 @@ export async function getPredictionStatus(predictionId: string, createdAt: Date,
     }
   }
 
-  if (!replicateClient) {
-    throw new Error('Replicate client is not initialized, and this is not a mock prediction.');
+  if (!isFashnConfigured) {
+    throw new Error('FASHN.ai API Key is not initialized, and this is not a mock prediction.');
   }
 
   try {
-    const prediction = await replicateClient.predictions.get(predictionId);
+    const res = await fetch(`https://api.fashn.ai/v1/status/${predictionId}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${process.env.FASHN_API_KEY}`,
+      },
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`FASHN.ai status check failed: ${res.status} - ${errText}`);
+    }
+
+    const data = await res.json();
     
     let outputUrl = null;
-    if (prediction.status === 'succeeded' && prediction.output) {
-      // Replicate outputs are typically arrays or single strings of URLs
-      outputUrl = Array.isArray(prediction.output) ? prediction.output[0] : prediction.output;
+    const statusLower = (data.status || 'starting').toLowerCase();
+
+    if (statusLower === 'completed' && data.output) {
+      // FASHN output is typically a URL string or an array
+      outputUrl = Array.isArray(data.output) ? data.output[0] : data.output;
+    }
+
+    // Map FASHN.ai status to our app's internal status representation
+    let mappedStatus = 'starting';
+    if (statusLower === 'completed') {
+      mappedStatus = 'succeeded';
+    } else if (statusLower === 'failed') {
+      mappedStatus = 'failed';
+    } else if (statusLower === 'processing') {
+      mappedStatus = 'processing';
     }
 
     return {
-      status: prediction.status, // 'starting', 'processing', 'succeeded', 'failed', 'canceled'
+      status: mappedStatus,
       output: outputUrl,
-      error: prediction.error,
+      error: data.error || null,
     };
   } catch (error) {
-    console.error(`❌ [Replicate] Failed to retrieve prediction ${predictionId}:`, error);
+    console.error(`❌ [FASHN.ai] Failed to retrieve prediction status for ${predictionId}:`, error);
     throw error;
   }
 }

@@ -346,6 +346,64 @@ export default function FashionStudio() {
     setGeneratedResult(null);
     setGenerationStatus('PENDING');
 
+    if (demoMode) {
+      // ⚡ Client-side high-speed demo simulation!
+      // This runs entirely in the browser, making it 100% reliable and immune to database latency.
+      let seconds = 0;
+      const interval = setInterval(() => {
+        seconds += 1.25;
+        if (seconds < 2) {
+          setGenerationStatus('PENDING');
+        } else if (seconds < 4) {
+          setGenerationStatus('PROCESSING');
+        } else {
+          clearInterval(interval);
+          setIsGenerating(false);
+          setGeneratedResult(selectedDress.imageUrl);
+          
+          // Celebration!
+          confetti({
+            particleCount: 150,
+            spread: 80,
+            origin: { y: 0.6 },
+            colors: ['#a855f7', '#ec4899', '#3b82f6']
+          });
+
+          // Add to recent try-ons list
+          const newTryOn = {
+            id: `demo_${Math.random().toString(36).substring(2, 9)}`,
+            imageUrl: selectedDress.imageUrl,
+            originalUrl: uploadedImage,
+            dressTitle: selectedDress.title,
+            dressImageUrl: selectedDress.imageUrl,
+            createdAt: new Date().toISOString()
+          };
+          
+          const updated = [newTryOn, ...recentTryOns.filter(r => r.dressImageUrl !== selectedDress.imageUrl)].slice(0, 10);
+          setRecentTryOns(updated);
+          localStorage.setItem('aura_recent_tryons', JSON.stringify(updated));
+        }
+      }, 1250);
+
+      // Fire a silent background log to the database so it still registers in the Admin Dashboard!
+      try {
+        fetch('/api/generate-tryon', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            guestToken,
+            humanImage: uploadedImage,
+            dressId: selectedDress.id,
+            optionalName: guestName,
+            simulate: true,
+          }),
+        });
+      } catch (e) {
+        console.error('Silent background demo registration failed:', e);
+      }
+      return;
+    }
+
     try {
       const res = await fetch('/api/generate-tryon', {
         method: 'POST',

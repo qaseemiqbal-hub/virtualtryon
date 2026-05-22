@@ -194,9 +194,17 @@ export default function FashionStudio() {
               setUploadError(gen.error || 'AI generation failed. Please try a different photo.');
               clearInterval(pollInterval);
             }
+          } else {
+            console.error('❌ Status check returned success=false:', result.message);
+            setIsGenerating(false);
+            setUploadError(result.message || 'Failed to check AI processing state.');
+            clearInterval(pollInterval);
           }
         } catch (pollErr) {
-          console.error('Error checking tryon status:', pollErr);
+          console.error('❌ Error checking tryon status:', pollErr);
+          setIsGenerating(false);
+          setUploadError('Failed to contact the styling server. Polling aborted.');
+          clearInterval(pollInterval);
         }
       }, 2500);
     }
@@ -214,24 +222,66 @@ export default function FashionStudio() {
     setShowNameModal(false);
   };
 
-  // Image Upload handler (converts file to base64)
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Helper to resize and compress human image on the client side
+  // This avoids exceeding Vercel's strict 4.5 MB request payload limits
+  const resizeAndCompressImage = (file: File, maxWidth: number = 1024, maxHeight: number = 1024): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+
+          // Calculate new dimensions maintaining aspect ratio
+          if (width > height) {
+            if (width > maxWidth) {
+              height = Math.round((height * maxWidth) / width);
+              width = maxWidth;
+            }
+          } else {
+            if (height > maxHeight) {
+              width = Math.round((width * maxHeight) / height);
+              height = maxHeight;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            resolve(event.target?.result as string);
+            return;
+          }
+
+          ctx.drawImage(img, 0, 0, width, height);
+          // Compress as high-quality JPEG (0.85) to minimize base64 size (normally 100kb-300kb)
+          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.85);
+          resolve(compressedBase64);
+        };
+        img.onerror = (err) => reject(new Error('Failed to load image for resizing.'));
+        img.src = event.target?.result as string;
+      };
+      reader.onerror = (err) => reject(new Error('Failed to read selected file.'));
+      reader.readAsDataURL(file);
+    });
+  };
+
+  // Image Upload handler (resizes & compresses on client, then converts to base64)
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 8 * 1024 * 1024) {
-        setUploadError('File size is too large (max 8MB).');
-        return;
-      }
-
       setUploadError(null);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setUploadedImage(reader.result as string);
-      };
-      reader.onerror = () => {
-        setUploadError('Failed to read selected image file.');
-      };
-      reader.readAsDataURL(file);
+      setIsGenerating(false); // Make sure generator is idle
+      try {
+        const resizedBase64 = await resizeAndCompressImage(file);
+        setUploadedImage(resizedBase64);
+      } catch (err: any) {
+        console.error('❌ Image compression failed:', err);
+        setUploadError(err.message || 'Failed to process selected image file.');
+      }
     }
   };
 
@@ -240,7 +290,7 @@ export default function FashionStudio() {
     e.preventDefault();
   };
 
-  const handleDrop = (e: React.DragEvent) => {
+  const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     const file = e.dataTransfer.files?.[0];
     if (file) {
@@ -248,16 +298,15 @@ export default function FashionStudio() {
         setUploadError('Please drop an image file (PNG, JPG, JPEG).');
         return;
       }
-      if (file.size > 8 * 1024 * 1024) {
-        setUploadError('File size is too large (max 8MB).');
-        return;
-      }
       setUploadError(null);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setUploadedImage(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      setIsGenerating(false); // Make sure generator is idle
+      try {
+        const resizedBase64 = await resizeAndCompressImage(file);
+        setUploadedImage(resizedBase64);
+      } catch (err: any) {
+        console.error('❌ Dropped image compression failed:', err);
+        setUploadError(err.message || 'Failed to process dropped image file.');
+      }
     }
   };
 

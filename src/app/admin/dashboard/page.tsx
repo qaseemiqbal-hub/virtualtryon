@@ -91,6 +91,21 @@ export default function AdminDashboard() {
   const [dressError, setDressError] = useState<string | null>(null);
 
   const dressFileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Bulk Dress Form States
+  const [uploadMode, setUploadMode] = useState<'single' | 'bulk'>('single');
+  const [bulkDresses, setBulkDresses] = useState<Array<{
+    id: string;
+    file: File;
+    title: string;
+    previewUrl: string;
+    description: string;
+    tags: string;
+  }>>([]);
+  const [bulkUploadProgress, setBulkUploadProgress] = useState(0);
+  const [bulkCategoryId, setBulkCategoryId] = useState('');
+  const bulkFileInputRef = useRef<HTMLInputElement>(null);
+
   const router = useRouter();
 
   // 1. Authorization & Fetch Dashboard Data
@@ -222,6 +237,123 @@ export default function AdminDashboard() {
     } catch (err) {
       console.error(err);
       setDressError('Server error while saving outfit.');
+    } finally {
+      setDressSubmitting(false);
+    }
+  };
+
+  // Bulk files selection
+  const handleBulkFilesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length > 0) {
+      const newItems = files.map(file => {
+        // Formulate a beautiful title from the filename
+        const nameWithoutExt = file.name.replace(/\.[^/.]+$/, "");
+        const cleanTitle = nameWithoutExt
+          .split(/[-_\s]+/)
+          .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+          .join(' ');
+
+        return {
+          id: Math.random().toString(36).substring(2, 9),
+          file,
+          title: cleanTitle,
+          previewUrl: '',
+          description: '',
+          tags: ''
+        };
+      });
+
+      setBulkDresses(prev => [...prev, ...newItems]);
+
+      // Read files as base64 in parallel
+      newItems.forEach(item => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setBulkDresses(current =>
+            current.map(d => d.id === item.id ? { ...d, previewUrl: reader.result as string } : d)
+          );
+        };
+        reader.readAsDataURL(item.file);
+      });
+    }
+  };
+
+  // Remove single item from bulk list before upload
+  const handleRemoveBulkItem = (id: string) => {
+    setBulkDresses(prev => prev.filter(item => item.id !== id));
+  };
+
+  // Modify bulk item title inline
+  const handleUpdateBulkTitle = (id: string, newTitle: string) => {
+    setBulkDresses(prev => prev.map(item => item.id === id ? { ...item, title: newTitle } : item));
+  };
+
+  // Bulk Upload outfits handler
+  const handleAddBulkDresses = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setDressError(null);
+
+    if (bulkDresses.length === 0) {
+      setDressError('Please add at least one outfit image.');
+      return;
+    }
+
+    if (!bulkCategoryId) {
+      setDressError('Please select a collection category for these outfits.');
+      return;
+    }
+
+    setDressSubmitting(true);
+    let successCount = 0;
+
+    try {
+      for (let i = 0; i < bulkDresses.length; i++) {
+        const item = bulkDresses[i];
+        setBulkUploadProgress(i + 1);
+
+        // Fetch base64 if not loaded yet
+        let base64 = item.previewUrl;
+        if (!base64) {
+          base64 = await new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(item.file);
+          });
+        }
+
+        const res = await fetch('/api/dresses', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: item.title || `Outfit ${i + 1}`,
+            description: item.description || dressDesc || '', // fallback to shared description
+            image: base64,
+            tags: item.tags || dressTags || '', // fallback to shared tags
+            categoryId: bulkCategoryId,
+          }),
+        });
+
+        const data = await res.json();
+        if (data.success) {
+          successCount++;
+          setDresses(current => [data.data, ...current]);
+        } else {
+          console.error(`Failed to upload ${item.title}:`, data.message);
+        }
+      }
+
+      // Upload finished!
+      setShowDressModal(false);
+      // Reset form states
+      setBulkDresses([]);
+      setBulkUploadProgress(0);
+      setBulkCategoryId('');
+      setDressTags('');
+      setDressDesc('');
+    } catch (err) {
+      console.error(err);
+      setDressError(`An error occurred during bulk upload. Successfully saved ${successCount} outfits.`);
     } finally {
       setDressSubmitting(false);
     }
@@ -729,31 +861,219 @@ export default function AdminDashboard() {
                 </div>
               )}
 
-              {/* Form body */}
-              <form onSubmit={handleAddDress} className="flex flex-col gap-4">
-                
-                <div className="grid grid-cols-2 gap-4">
+              {/* Upload Mode Switcher */}
+              <div className="flex border-b border-white/5 pb-1 mb-2 gap-4">
+                <button
+                  type="button"
+                  disabled={dressSubmitting}
+                  onClick={() => setUploadMode('single')}
+                  className={`pb-2 text-xs font-bold uppercase tracking-wider border-b-2 transition-all cursor-pointer ${
+                    uploadMode === 'single'
+                      ? 'border-purple-500 text-white'
+                      : 'border-transparent text-neutral-400 hover:text-white'
+                  }`}
+                >
+                  Single Outfit
+                </button>
+                <button
+                  type="button"
+                  disabled={dressSubmitting}
+                  onClick={() => setUploadMode('bulk')}
+                  className={`pb-2 text-xs font-bold uppercase tracking-wider border-b-2 transition-all cursor-pointer ${
+                    uploadMode === 'bulk'
+                      ? 'border-purple-500 text-white'
+                      : 'border-transparent text-neutral-400 hover:text-white'
+                  }`}
+                >
+                  Bulk Outfits
+                </button>
+              </div>
+
+              {uploadMode === 'single' ? (
+                /* Form body - Single Mode */
+                <form onSubmit={handleAddDress} className="flex flex-col gap-4">
                   
-                  {/* Left Column: Details */}
-                  <div className="flex flex-col gap-4">
-                    <div className="flex flex-col gap-1.5">
-                      <label className="text-[9px] font-bold text-neutral-400 uppercase tracking-widest">Outfit Title*</label>
-                      <input
-                        type="text"
-                        required
-                        placeholder="Midnight Stellar Gown..."
-                        value={dressTitle}
-                        onChange={(e) => setDressTitle(e.target.value)}
-                        className="bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-purple-500/50"
-                      />
+                  <div className="grid grid-cols-2 gap-4">
+                    
+                    {/* Left Column: Details */}
+                    <div className="flex flex-col gap-4">
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-[9px] font-bold text-neutral-400 uppercase tracking-widest">Outfit Title*</label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="Midnight Stellar Gown..."
+                          value={dressTitle}
+                          onChange={(e) => setDressTitle(e.target.value)}
+                          className="bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-purple-500/50"
+                        />
+                      </div>
+
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-[9px] font-bold text-neutral-400 uppercase tracking-widest">Collection Category*</label>
+                        <select
+                          required
+                          value={dressCategoryId}
+                          onChange={(e) => setDressCategoryId(e.target.value)}
+                          className="bg-[#0c0c0f] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-purple-500/50"
+                        >
+                          <option value="" disabled>Select category...</option>
+                          {categories.map((c) => (
+                            <option key={c.id} value={c.id}>{c.name}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-[9px] font-bold text-neutral-400 uppercase tracking-widest">Tags (comma-separated)</label>
+                        <input
+                          type="text"
+                          placeholder="Elegant, Satin, Gala..."
+                          value={dressTags}
+                          onChange={(e) => setDressTags(e.target.value)}
+                          className="bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-purple-500/50"
+                        />
+                      </div>
                     </div>
 
+                    {/* Right Column: Image Upload Preview */}
                     <div className="flex flex-col gap-1.5">
-                      <label className="text-[9px] font-bold text-neutral-400 uppercase tracking-widest">Collection Category*</label>
+                      <label className="text-[9px] font-bold text-neutral-400 uppercase tracking-widest">Garment Display Photo*</label>
+                      
+                      <div
+                        onClick={() => dressFileInputRef.current?.click()}
+                        className="border border-dashed border-white/15 hover:border-purple-500/50 rounded-xl aspect-[3/4] bg-white/5 flex flex-col items-center justify-center p-3 text-center cursor-pointer overflow-hidden relative group"
+                      >
+                        <input
+                          type="file"
+                          ref={dressFileInputRef}
+                          accept="image/*"
+                          onChange={handleDressImageChange}
+                          className="hidden"
+                        />
+
+                        {dressImage ? (
+                          <>
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={dressImage} alt="outfit preview" className="absolute inset-0 w-full h-full object-cover" />
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-xs text-white font-bold">
+                              CHANGE IMAGE
+                            </div>
+                          </>
+                        ) : (
+                          <div className="flex flex-col items-center gap-1.5">
+                            <Upload className="h-6 w-6 text-neutral-400" />
+                            <span className="text-[10px] text-white font-bold">Upload Outfit Photo</span>
+                            <span className="text-[9px] text-neutral-500">Click to select files</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                  </div>
+
+                  {/* Description */}
+                  <div className="flex flex-col gap-1.5 mt-1">
+                    <label className="text-[9px] font-bold text-neutral-400 uppercase tracking-widest">Outfit Description</label>
+                    <textarea
+                      placeholder="A breathtaking evening gown tailored from premium silk..."
+                      value={dressDesc}
+                      onChange={(e) => setDressDesc(e.target.value)}
+                      rows={3}
+                      className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-purple-500/50 resize-none"
+                    />
+                  </div>
+
+                  {/* Submit button */}
+                  <button
+                    type="submit"
+                    disabled={dressSubmitting}
+                    className="w-full bg-gradient-to-r from-purple-600 to-pink-500 hover:from-purple-500 hover:to-pink-400 disabled:opacity-50 text-xs font-bold tracking-widest text-white uppercase py-3.5 rounded-xl shadow-lg mt-2 flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    {dressSubmitting ? 'ADDING OUTFIT TO SHOWROOM...' : 'PUBLISH OUTFIT'}
+                  </button>
+
+                </form>
+              ) : (
+                /* Form body - Bulk Mode */
+                <form onSubmit={handleAddBulkDresses} className="flex flex-col gap-4">
+                  
+                  {/* Dropzone */}
+                  <div
+                    onClick={() => bulkFileInputRef.current?.click()}
+                    className="border-2 border-dashed border-white/10 hover:border-purple-500/50 bg-white/5 hover:bg-white/10 rounded-2xl py-8 px-4 flex flex-col items-center justify-center gap-2 cursor-pointer text-center group transition-all"
+                  >
+                    <input
+                      type="file"
+                      ref={bulkFileInputRef}
+                      accept="image/*"
+                      multiple
+                      onChange={handleBulkFilesChange}
+                      className="hidden"
+                    />
+                    <Upload className="h-8 w-8 text-neutral-400 group-hover:text-purple-400 transition-colors" />
+                    <span className="text-xs font-bold text-white uppercase tracking-wider">Drag & Drop Garment Images</span>
+                    <span className="text-[10px] text-neutral-500">Or click to browse files from your computer (Multiple allowed)</span>
+                  </div>
+
+                  {/* Selected items list */}
+                  {bulkDresses.length > 0 && (
+                    <div className="flex flex-col gap-2 max-h-[250px] overflow-y-auto pr-1">
+                      <span className="text-[9px] font-bold text-neutral-500 uppercase tracking-widest">
+                        Selected Outfits ({bulkDresses.length})
+                      </span>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {bulkDresses.map((item) => (
+                          <div key={item.id} className="bg-white/5 border border-white/5 rounded-xl p-2.5 flex gap-3 items-center relative group">
+                            {/* Thumbnail */}
+                            <div className="h-14 w-10 shrink-0 bg-neutral-900 rounded-lg overflow-hidden relative">
+                              {item.previewUrl ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={item.previewUrl} alt="preview" className="w-full h-full object-cover" />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center">
+                                  <div className="h-3 w-3 rounded-full border-t border-purple-500 animate-spin" />
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Title input */}
+                            <div className="flex-1 min-w-0 flex flex-col gap-1">
+                              <label className="text-[8px] font-bold text-neutral-500 uppercase tracking-widest block">Outfit Title</label>
+                              <input
+                                type="text"
+                                required
+                                value={item.title}
+                                onChange={(e) => handleUpdateBulkTitle(item.id, e.target.value)}
+                                className="bg-black/20 border border-white/10 rounded-lg px-2.5 py-1 text-[11px] text-white focus:outline-none focus:border-purple-500/50 w-full"
+                                placeholder="Enter title..."
+                              />
+                            </div>
+
+                            {/* Remove button */}
+                            <button
+                              type="button"
+                              disabled={dressSubmitting}
+                              onClick={() => handleRemoveBulkItem(item.id)}
+                              className="text-red-400 hover:text-red-300 p-1 transition-colors cursor-pointer shrink-0 self-center"
+                              title="Remove from upload list"
+                            >
+                              <XCircle className="h-4.5 w-4.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Shared Metadata Inputs */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[9px] font-bold text-neutral-400 uppercase tracking-widest">Shared Category*</label>
                       <select
                         required
-                        value={dressCategoryId}
-                        onChange={(e) => setDressCategoryId(e.target.value)}
+                        value={bulkCategoryId}
+                        onChange={(e) => setBulkCategoryId(e.target.value)}
                         className="bg-[#0c0c0f] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-purple-500/50"
                       >
                         <option value="" disabled>Select category...</option>
@@ -764,10 +1084,10 @@ export default function AdminDashboard() {
                     </div>
 
                     <div className="flex flex-col gap-1.5">
-                      <label className="text-[9px] font-bold text-neutral-400 uppercase tracking-widest">Tags (comma-separated)</label>
+                      <label className="text-[9px] font-bold text-neutral-400 uppercase tracking-widest">Shared Tags (comma-separated)</label>
                       <input
                         type="text"
-                        placeholder="Elegant, Satin, Gala..."
+                        placeholder="E.g., Elegant, Silk..."
                         value={dressTags}
                         onChange={(e) => setDressTags(e.target.value)}
                         className="bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-purple-500/50"
@@ -775,64 +1095,47 @@ export default function AdminDashboard() {
                     </div>
                   </div>
 
-                  {/* Right Column: Image Upload Preview */}
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-[9px] font-bold text-neutral-400 uppercase tracking-widest">Garment Display Photo*</label>
-                    
-                    <div
-                      onClick={() => dressFileInputRef.current?.click()}
-                      className="border border-dashed border-white/15 hover:border-purple-500/50 rounded-xl aspect-[3/4] bg-white/5 flex flex-col items-center justify-center p-3 text-center cursor-pointer overflow-hidden relative group"
-                    >
-                      <input
-                        type="file"
-                        ref={dressFileInputRef}
-                        accept="image/*"
-                        onChange={handleDressImageChange}
-                        className="hidden"
-                      />
-
-                      {dressImage ? (
-                        <>
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={dressImage} alt="outfit preview" className="absolute inset-0 w-full h-full object-cover" />
-                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-xs text-white font-bold">
-                            CHANGE IMAGE
-                          </div>
-                        </>
-                      ) : (
-                        <div className="flex flex-col items-center gap-1.5">
-                          <Upload className="h-6 w-6 text-neutral-400" />
-                          <span className="text-[10px] text-white font-bold">Upload Outfit Photo</span>
-                          <span className="text-[9px] text-neutral-500">Click to select files</span>
-                        </div>
-                      )}
-                    </div>
+                    <label className="text-[9px] font-bold text-neutral-400 uppercase tracking-widest">Shared Description (optional)</label>
+                    <textarea
+                      placeholder="Enter description that applies to this batch..."
+                      value={dressDesc}
+                      onChange={(e) => setDressDesc(e.target.value)}
+                      rows={2}
+                      className="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-xs text-white focus:outline-none focus:border-purple-500/50 resize-none"
+                    />
                   </div>
 
-                </div>
+                  {/* Bulk Upload Progress Loader */}
+                  {dressSubmitting && bulkUploadProgress > 0 && (
+                    <div className="flex flex-col gap-2 bg-purple-500/10 border border-purple-500/20 rounded-xl p-3 text-center">
+                      <div className="flex justify-between items-center text-[10px] font-bold text-purple-300 uppercase tracking-wider">
+                        <span>Uploading Garments...</span>
+                        <span>{bulkUploadProgress} / {bulkDresses.length}</span>
+                      </div>
+                      <div className="w-full bg-white/5 rounded-full h-1.5 overflow-hidden">
+                        <div 
+                          className="bg-gradient-to-r from-purple-500 to-pink-500 h-full transition-all duration-300"
+                          style={{ width: `${(bulkUploadProgress / bulkDresses.length) * 100}%` }}
+                        />
+                      </div>
+                      <span className="text-[9px] text-neutral-400 truncate block">
+                        Uploading: "{bulkDresses[bulkUploadProgress - 1]?.title}"...
+                      </span>
+                    </div>
+                  )}
 
-                {/* Description */}
-                <div className="flex flex-col gap-1.5 mt-1">
-                  <label className="text-[9px] font-bold text-neutral-400 uppercase tracking-widest">Outfit Description</label>
-                  <textarea
-                    placeholder="A breathtaking evening gown tailored from premium silk..."
-                    value={dressDesc}
-                    onChange={(e) => setDressDesc(e.target.value)}
-                    rows={3}
-                    className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-purple-500/50 resize-none"
-                  />
-                </div>
+                  {/* Bulk Submit button */}
+                  <button
+                    type="submit"
+                    disabled={dressSubmitting || bulkDresses.length === 0 || !bulkCategoryId}
+                    className="w-full bg-gradient-to-r from-purple-600 to-pink-500 hover:from-purple-500 hover:to-pink-400 disabled:opacity-30 disabled:cursor-not-allowed text-xs font-bold tracking-widest text-white uppercase py-3.5 rounded-xl shadow-lg mt-2 flex items-center justify-center gap-2 cursor-pointer transition-all"
+                  >
+                    {dressSubmitting ? `UPLOADING (${bulkUploadProgress}/${bulkDresses.length})...` : `PUBLISH ${bulkDresses.length} OUTFITS`}
+                  </button>
 
-                {/* Submit button */}
-                <button
-                  type="submit"
-                  disabled={dressSubmitting}
-                  className="w-full bg-gradient-to-r from-purple-600 to-pink-500 hover:from-purple-500 hover:to-pink-400 disabled:opacity-50 text-xs font-bold tracking-widest text-white uppercase py-3.5 rounded-xl shadow-lg mt-2 flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  {dressSubmitting ? 'ADDING OUTFIT TO SHOWROOM...' : 'PUBLISH OUTFIT'}
-                </button>
-
-              </form>
+                </form>
+              )}
 
             </motion.div>
           </div>

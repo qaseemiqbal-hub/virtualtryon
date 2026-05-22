@@ -9,7 +9,7 @@ export const replicateClient = isReplicateConfigured
   : null;
 
 // Replicate IDM-VTON model version hash
-export const IDM_VTON_VERSION = "c871815f9c736e4f3a7634f195d2c2069fa2db7f7b3e100f72a4f61f77d33d94";
+export const IDM_VTON_VERSION = "0513734a452173b8173e907e3a59d19a36266e55b48528559432bd21c7d7e985";
 
 export interface TryOnInput {
   customerImageUrl: string;
@@ -43,9 +43,9 @@ export async function triggerTryOn({
       input: {
         crop: true,
         category: category,
-        human_image: customerImageUrl,
-        garment_image: dressImageUrl,
-        garment_description: `Generate a realistic virtual fashion try-on image of this ${dressTitle}. Preserve facial identity, hairstyle, body proportions, and skin tone while naturally fitting the garment with realistic lighting, shadows, folds, and fabric texture.`,
+        human_img: customerImageUrl,
+        garm_img: dressImageUrl,
+        garment_des: `Generate a realistic virtual fashion try-on image of this ${dressTitle}. Preserve facial identity, hairstyle, body proportions, and skin tone while naturally fitting the garment with realistic lighting, shadows, folds, and fabric texture.`,
       },
     });
 

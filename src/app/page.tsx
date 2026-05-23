@@ -444,47 +444,50 @@ export default function FashionStudio() {
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
-                {categories.map((cat) => (
-                  <motion.div
-                    whileHover={{ y: -6, scale: 1.02 }}
-                    transition={{ duration: 0.3 }}
-                    key={cat.id}
-                    onClick={() => setSelectedCategory(cat.id)}
-                    className="group relative aspect-[4/5] rounded-2xl overflow-hidden glass-panel border border-white/5 hover:border-purple-500/30 transition-all duration-500 shadow-xl cursor-pointer flex flex-col justify-end"
-                  >
-                    {/* Thumbnail Image */}
-                    {cat.thumbnailUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
+                {categories.map((cat) => {
+                  const coverImage = cat.thumbnailUrl || 
+                    dresses.find(d => d.categoryId === cat.id)?.imageUrl || 
+                    (cat.slug === 'evening-gowns' ? 'https://images.unsplash.com/photo-1566174053879-31528523f8ae?q=80&w=600&auto=format&fit=crop' :
+                     cat.slug === 'summer-dresses' ? 'https://images.unsplash.com/photo-1572804013309-59a88b7e92f1?q=80&w=600&auto=format&fit=crop' :
+                     cat.slug === 'cocktail-party' ? 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?q=80&w=600&auto=format&fit=crop' :
+                     cat.slug === 'luxury-velvet' ? 'https://images.unsplash.com/photo-1539008835657-9e8e62c82f62?q=80&w=600&auto=format&fit=crop' :
+                     'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?q=80&w=600&auto=format&fit=crop');
+
+                  return (
+                    <motion.div
+                      whileHover={{ y: -6, scale: 1.02 }}
+                      transition={{ duration: 0.3 }}
+                      key={cat.id}
+                      onClick={() => setSelectedCategory(cat.id)}
+                      className="group relative aspect-[4/5] rounded-2xl overflow-hidden glass-panel border border-white/5 hover:border-purple-500/30 transition-all duration-500 shadow-xl cursor-pointer flex flex-col justify-end"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img 
-                        src={cat.thumbnailUrl} 
+                        src={coverImage} 
                         alt={cat.name}
                         className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
                       />
-                    ) : (
-                      <div className="absolute inset-0 bg-neutral-950 flex items-center justify-center">
-                        <Shirt className="h-12 w-12 text-neutral-800" />
-                      </div>
-                    )}
-                    
-                    {/* Overlay Gradient */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/40 to-transparent opacity-85" />
-                    
-                    {/* Info */}
-                    <div className="relative z-10 p-6">
-                      <span className="text-[10px] text-purple-400 font-extrabold uppercase tracking-widest block mb-1">
-                        Collection
-                      </span>
-                      <h3 className="text-white font-extrabold text-xl tracking-wide group-hover:text-purple-300 transition-colors">
-                        {cat.name}
-                      </h3>
                       
-                      <span className="mt-4 inline-flex items-center gap-1.5 text-xs text-neutral-400 group-hover:text-white transition-colors">
-                        Browse Collection
-                        <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-                      </span>
-                    </div>
-                  </motion.div>
-                ))}
+                      {/* Overlay Gradient */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/40 to-transparent opacity-85" />
+                      
+                      {/* Info */}
+                      <div className="relative z-10 p-6">
+                        <span className="text-[10px] text-purple-400 font-extrabold uppercase tracking-widest block mb-1">
+                          Collection
+                        </span>
+                        <h3 className="text-white font-extrabold text-xl tracking-wide group-hover:text-purple-300 transition-colors">
+                          {cat.name}
+                        </h3>
+                        
+                        <span className="mt-4 inline-flex items-center gap-1.5 text-xs text-neutral-400 group-hover:text-white transition-colors">
+                          Browse Collection
+                          <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                        </span>
+                      </div>
+                    </motion.div>
+                  );
+                })}
               </div>
             )}
           </section>

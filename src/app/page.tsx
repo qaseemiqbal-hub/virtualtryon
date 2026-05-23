@@ -630,9 +630,10 @@ export default function FashionStudio() {
                 <button
                   disabled={isGenerating}
                   onClick={() => setSelectedDress(null)}
-                  className="h-9 w-9 rounded-lg bg-white/5 border border-white/5 hover:bg-white/10 flex items-center justify-center text-neutral-400 hover:text-white transition-colors disabled:opacity-40"
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white/5 border border-white/10 hover:border-white/15 text-xs font-extrabold tracking-wider uppercase text-neutral-300 hover:text-white transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none shadow-sm"
                 >
-                  <X className="h-5 w-5" />
+                  <ArrowRight className="h-3.5 w-3.5 rotate-180 text-purple-400" />
+                  &lt; Back
                 </button>
               </div>
 
@@ -794,7 +795,7 @@ export default function FashionStudio() {
                   <button
                     disabled={!uploadedImage || isGenerating}
                     onClick={handleStartTryOn}
-                    className="w-full bg-gradient-to-r from-purple-600 to-pink-500 hover:from-purple-500 hover:to-pink-400 disabled:from-neutral-800 disabled:to-neutral-900 text-xs font-bold tracking-widest text-white uppercase py-4 rounded-xl transition-all shadow-lg disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none flex items-center justify-center gap-2"
+                    className="w-full bg-gradient-to-r from-purple-600 via-fuchsia-500 to-pink-500 hover:from-purple-500 hover:via-fuchsia-400 hover:to-pink-400 disabled:bg-white/5 disabled:border disabled:border-white/10 disabled:text-neutral-500 disabled:from-none disabled:to-none text-sm font-extrabold tracking-[0.2em] text-white uppercase py-5 px-6 rounded-xl transition-all duration-300 shadow-xl shadow-purple-600/25 hover:shadow-2xl hover:shadow-purple-500/40 hover:scale-[1.01] active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none flex items-center justify-center gap-2.5"
                   >
                     {isGenerating ? (
                       <>
@@ -803,8 +804,8 @@ export default function FashionStudio() {
                       </>
                     ) : (
                       <>
-                        <Sparkles className="h-4 w-4" />
-                        GENERATE AI VIRTUAL TRY-ON
+                        <Sparkles className="h-4.5 w-4.5" />
+                        TRY ON THIS DRESS
                       </>
                     )}
                   </button>

@@ -69,7 +69,6 @@ export default function FashionStudio() {
   const [generationStatus, setGenerationStatus] = useState<string>('PENDING');
   const [generatedResult, setGeneratedResult] = useState<string | null>(null);
   const [aiTipIndex, setAiTipIndex] = useState<number>(0);
-  const [demoMode, setDemoMode] = useState<boolean>(false);
   const [elapsedSeconds, setElapsedSeconds] = useState<number>(0);
 
   // Recent try-ons shelf
@@ -101,9 +100,6 @@ export default function FashionStudio() {
   }, [isGenerating]);
 
   const getDetailedStatus = () => {
-    if (demoMode) {
-      return "⚡ Running High-Speed Simulation...";
-    }
     if (elapsedSeconds < 8) return "Securing AI Studio Connection...";
     if (elapsedSeconds < 25) return "Allocating high-speed Nvidia A100 GPU...";
     if (elapsedSeconds < 55) return "GPU Cold Start: Booting container (can take 1-2 min)...";
@@ -346,64 +342,6 @@ export default function FashionStudio() {
     setGeneratedResult(null);
     setGenerationStatus('PENDING');
 
-    if (demoMode) {
-      // ⚡ Client-side high-speed demo simulation!
-      // This runs entirely in the browser, making it 100% reliable and immune to database latency.
-      let seconds = 0;
-      const interval = setInterval(() => {
-        seconds += 1.25;
-        if (seconds < 2) {
-          setGenerationStatus('PENDING');
-        } else if (seconds < 4) {
-          setGenerationStatus('PROCESSING');
-        } else {
-          clearInterval(interval);
-          setIsGenerating(false);
-          setGeneratedResult(selectedDress.imageUrl);
-          
-          // Celebration!
-          confetti({
-            particleCount: 150,
-            spread: 80,
-            origin: { y: 0.6 },
-            colors: ['#a855f7', '#ec4899', '#3b82f6']
-          });
-
-          // Add to recent try-ons list
-          const newTryOn = {
-            id: `demo_${Math.random().toString(36).substring(2, 9)}`,
-            imageUrl: selectedDress.imageUrl,
-            originalUrl: uploadedImage,
-            dressTitle: selectedDress.title,
-            dressImageUrl: selectedDress.imageUrl,
-            createdAt: new Date().toISOString()
-          };
-          
-          const updated = [newTryOn, ...recentTryOns.filter(r => r.dressImageUrl !== selectedDress.imageUrl)].slice(0, 10);
-          setRecentTryOns(updated);
-          localStorage.setItem('aura_recent_tryons', JSON.stringify(updated));
-        }
-      }, 1250);
-
-      // Fire a silent background log to the database so it still registers in the Admin Dashboard!
-      try {
-        fetch('/api/generate-tryon', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            guestToken,
-            humanImage: uploadedImage,
-            dressId: selectedDress.id,
-            optionalName: guestName,
-            simulate: true,
-          }),
-        });
-      } catch (e) {
-        console.error('Silent background demo registration failed:', e);
-      }
-      return;
-    }
-
     try {
       const res = await fetch('/api/generate-tryon', {
         method: 'POST',
@@ -415,7 +353,6 @@ export default function FashionStudio() {
           humanImage: uploadedImage,
           dressId: selectedDress.id,
           optionalName: guestName,
-          simulate: demoMode,
         }),
       });
 
@@ -861,50 +798,21 @@ export default function FashionStudio() {
 
                 {/* Additional custom name capture for the session */}
                 {!isGenerating && !generatedResult && (
-                  <div className="flex flex-col gap-4">
-                    <div className="bg-white/5 border border-white/5 p-4 rounded-xl flex flex-col gap-2">
-                      <label className="text-xs font-bold text-neutral-300 uppercase tracking-wider flex items-center gap-1">
-                        <User className="h-3 w-3 text-purple-400" />
-                        Try-On Guest Name
-                      </label>
-                      <input 
-                        type="text" 
-                        placeholder="Enter your name (optional)..."
-                        value={guestName}
-                        onChange={(e) => {
-                          setGuestName(e.target.value);
-                          localStorage.setItem('aura_guest_name', e.target.value);
-                        }}
-                        className="bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500/50"
-                      />
-                    </div>
-
-                    {/* High-Speed Demo Mode Toggle */}
-                    <div className="bg-purple-950/10 border border-purple-500/15 p-4 rounded-xl flex items-center justify-between">
-                      <div className="flex flex-col gap-0.5 max-w-[280px]">
-                        <span className="text-xs font-bold text-purple-300 uppercase tracking-wider flex items-center gap-1.5">
-                          <Sparkles className="h-3.5 w-3.5" />
-                          ⚡ High-Speed Demo Mode
-                        </span>
-                        <span className="text-[10px] text-neutral-400 font-light leading-snug">
-                          Bypass Replicate API queue and simulate authentic try-on locally in 5 seconds.
-                        </span>
-                      </div>
-                      
-                      <button
-                        type="button"
-                        onClick={() => setDemoMode(!demoMode)}
-                        className={`w-11 h-6 rounded-full p-1 transition-colors duration-300 focus:outline-none ${
-                          demoMode ? 'bg-purple-600' : 'bg-neutral-800'
-                        }`}
-                      >
-                        <div
-                          className={`w-4 h-4 rounded-full bg-white shadow-md transform transition-transform duration-300 ${
-                            demoMode ? 'translate-x-5' : 'translate-x-0'
-                          }`}
-                        />
-                      </button>
-                    </div>
+                  <div className="bg-white/5 border border-white/5 p-4 rounded-xl flex flex-col gap-2">
+                    <label className="text-xs font-bold text-neutral-300 uppercase tracking-wider flex items-center gap-1">
+                      <User className="h-3 w-3 text-purple-400" />
+                      Try-On Guest Name
+                    </label>
+                    <input 
+                      type="text" 
+                      placeholder="Enter your name (optional)..."
+                      value={guestName}
+                      onChange={(e) => {
+                        setGuestName(e.target.value);
+                        localStorage.setItem('aura_guest_name', e.target.value);
+                      }}
+                      className="bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500/50"
+                    />
                   </div>
                 )}
 

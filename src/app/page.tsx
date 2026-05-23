@@ -442,136 +442,175 @@ export default function FashionStudio() {
         </motion.p>
       </section>
 
-      {/* CATEGORY BAR */}
-      <section className="px-6 md:px-12 max-w-7xl mx-auto w-full mb-12">
-        <div className="flex flex-col gap-4">
-          <div className="flex justify-between items-end border-b border-white/5 pb-4">
-            <h2 className="text-lg font-semibold tracking-wider uppercase text-neutral-300 flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-purple-400" />
-              Explore Collections
-            </h2>
-            <span className="text-xs text-neutral-500">{filteredDresses.length} Outfits Available</span>
-          </div>
-
-          {loadingCatalog ? (
-            <div className="flex justify-center py-6">
-              <RefreshCw className="h-6 w-6 text-purple-500 animate-spin" />
+      {/* MAIN CONTAINER */}
+      <main className="px-6 md:px-12 max-w-7xl mx-auto w-full flex-1 flex flex-col">
+        {selectedCategory === 'all' ? (
+          /* COLLECTIONS GRID VIEW */
+          <section className="w-full flex-1 flex flex-col">
+            <div className="flex justify-between items-end border-b border-white/5 pb-4 mb-8">
+              <h2 className="text-lg font-bold tracking-wider uppercase text-neutral-300 flex items-center gap-2">
+                <Sparkles className="h-4.5 w-4.5 text-purple-400" />
+                Select a Collection
+              </h2>
+              <span className="text-xs text-neutral-500">{categories.length} Collections Available</span>
             </div>
-          ) : (
-            <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
-              <button
-                onClick={() => setSelectedCategory('all')}
-                className={`px-4 py-2 rounded-full text-xs tracking-wider font-semibold uppercase transition-all duration-300 ${
-                  selectedCategory === 'all'
-                    ? 'bg-gradient-to-r from-purple-600 to-pink-500 text-white shadow-lg shadow-purple-600/20'
-                    : 'bg-white/5 border border-white/5 text-neutral-400 hover:text-white hover:bg-white/10'
-                }`}
-              >
-                All Collections
-              </button>
-              {categories.map((cat) => (
-                <button
-                  key={cat.id}
-                  onClick={() => setSelectedCategory(cat.id)}
-                  className={`px-4 py-2 rounded-full text-xs tracking-wider font-semibold uppercase whitespace-nowrap transition-all duration-300 ${
-                    selectedCategory === cat.id
-                      ? 'bg-gradient-to-r from-purple-600 to-pink-500 text-white shadow-lg shadow-purple-600/20'
-                      : 'bg-white/5 border border-white/5 text-neutral-400 hover:text-white hover:bg-white/10'
-                  }`}
-                >
-                  {cat.name}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      </section>
 
-      {/* DRESSES CATALOG */}
-      <section className="px-6 md:px-12 max-w-7xl mx-auto w-full flex-1">
-        {loadingCatalog ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="h-96 rounded-2xl bg-white/5 animate-pulse border border-white/5" />
-            ))}
-          </div>
-        ) : filteredDresses.length === 0 ? (
-          <div className="text-center py-20 bg-white/5 rounded-3xl border border-white/5">
-            <p className="text-neutral-500 text-sm">No outfits found in this collection.</p>
-          </div>
-        ) : (
-          <motion.div 
-            layout
-            className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"
-          >
-            <AnimatePresence mode="popLayout">
-              {filteredDresses.map((dress) => (
-                <motion.div
-                  layout
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  transition={{ duration: 0.3 }}
-                  key={dress.id}
-                  className="group relative rounded-2xl overflow-hidden glass-panel border border-white/5 hover:border-white/15 transition-all duration-500 shadow-xl flex flex-col h-full"
-                >
-                  {/* Dress Image Panel */}
-                  <div className="relative aspect-[3/4] overflow-hidden bg-neutral-950">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img 
-                      src={dress.imageUrl} 
-                      alt={dress.title}
-                      className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-700 ease-out"
-                    />
+            {loadingCatalog ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="aspect-[4/5] rounded-2xl bg-white/5 animate-pulse border border-white/5" />
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
+                {categories.map((cat) => (
+                  <motion.div
+                    whileHover={{ y: -6, scale: 1.02 }}
+                    transition={{ duration: 0.3 }}
+                    key={cat.id}
+                    onClick={() => setSelectedCategory(cat.id)}
+                    className="group relative aspect-[4/5] rounded-2xl overflow-hidden glass-panel border border-white/5 hover:border-purple-500/30 transition-all duration-500 shadow-xl cursor-pointer flex flex-col justify-end"
+                  >
+                    {/* Thumbnail Image */}
+                    {cat.thumbnailUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img 
+                        src={cat.thumbnailUrl} 
+                        alt={cat.name}
+                        className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+                      />
+                    ) : (
+                      <div className="absolute inset-0 bg-neutral-950 flex items-center justify-center">
+                        <Shirt className="h-12 w-12 text-neutral-800" />
+                      </div>
+                    )}
                     
-                    {/* Overlay gradient */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/20 to-transparent opacity-60" />
+                    {/* Overlay Gradient */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/40 to-transparent opacity-85" />
                     
-                    {/* Tag Pills */}
-                    <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
-                      {dress.tags.slice(0, 2).map((t, idx) => (
-                        <span key={idx} className="bg-black/60 backdrop-blur-md text-[10px] text-neutral-300 font-semibold px-2.5 py-1 rounded-full uppercase tracking-wider border border-white/5">
-                          {t}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Dress Info Panel */}
-                  <div className="p-5 flex-1 flex flex-col justify-between">
-                    <div>
-                      <span className="text-[10px] text-purple-400 font-bold uppercase tracking-widest block mb-1">
-                        {dress.category?.name || 'Exclusive Design'}
+                    {/* Info */}
+                    <div className="relative z-10 p-6">
+                      <span className="text-[10px] text-purple-400 font-extrabold uppercase tracking-widest block mb-1">
+                        Collection
                       </span>
-                      <h3 className="text-white font-bold text-base tracking-wide group-hover:text-purple-400 transition-colors">
-                        {dress.title}
+                      <h3 className="text-white font-extrabold text-xl tracking-wide group-hover:text-purple-300 transition-colors">
+                        {cat.name}
                       </h3>
-                      {dress.description && (
-                        <p className="text-neutral-400 text-xs font-light mt-2 line-clamp-2 leading-relaxed">
-                          {dress.description}
-                        </p>
-                      )}
+                      
+                      <span className="mt-4 inline-flex items-center gap-1.5 text-xs text-neutral-400 group-hover:text-white transition-colors">
+                        Browse Collection
+                        <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                      </span>
                     </div>
+                  </motion.div>
+                ))}
+              </div>
+            )}
+          </section>
+        ) : (
+          /* OUTFITS IN SELECTED COLLECTION VIEW */
+          <section className="w-full flex-1 flex flex-col">
+            {/* Header / Back Navigation */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/5 pb-4 mb-8">
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setSelectedCategory('all')}
+                  className="flex items-center justify-center h-10 w-10 rounded-xl bg-white/5 hover:bg-white/10 text-neutral-400 hover:text-white transition-colors border border-white/5"
+                  title="Back to Collections"
+                >
+                  <ArrowRight className="h-4 w-4 rotate-180" />
+                </button>
+                <div>
+                  <span className="text-[10px] text-purple-400 font-bold uppercase tracking-widest block">
+                    Now Viewing
+                  </span>
+                  <h2 className="text-xl font-extrabold tracking-wide text-white">
+                    {categories.find(c => c.id === selectedCategory)?.name || 'Collection'}
+                  </h2>
+                </div>
+              </div>
+              
+              <span className="text-xs text-neutral-500 self-end sm:self-center">
+                {filteredDresses.length} Outfits Available
+              </span>
+            </div>
 
-                    <button
+            {/* Outfits Grid */}
+            {loadingCatalog ? (
+              <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="aspect-[3/4] rounded-2xl bg-white/5 animate-pulse border border-white/5" />
+                ))}
+              </div>
+            ) : filteredDresses.length === 0 ? (
+              <div className="text-center py-20 bg-white/5 rounded-3xl border border-white/5">
+                <p className="text-neutral-500 text-sm">No outfits found in this collection.</p>
+                <button
+                  onClick={() => setSelectedCategory('all')}
+                  className="mt-4 text-xs bg-purple-600/25 hover:bg-purple-600/40 text-purple-300 font-bold px-4 py-2 rounded-lg border border-purple-500/20 uppercase tracking-wider"
+                >
+                  Return to Collections
+                </button>
+              </div>
+            ) : (
+              <motion.div 
+                layout
+                className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6 mb-16"
+              >
+                <AnimatePresence mode="popLayout">
+                  {filteredDresses.map((dress) => (
+                    <motion.div
+                      layout
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.95 }}
+                      transition={{ duration: 0.3 }}
+                      key={dress.id}
                       onClick={() => {
                         setSelectedDress(dress);
                         setUploadedImage(null);
                         setGeneratedResult(null);
                         setUploadError(null);
                       }}
-                      className="mt-5 w-full bg-white/5 hover:bg-gradient-to-r hover:from-purple-600 hover:to-pink-500 hover:shadow-lg hover:shadow-purple-600/25 border border-white/10 hover:border-transparent text-xs tracking-widest font-bold text-white uppercase py-3 rounded-xl transition-all duration-300 flex items-center justify-center gap-2"
+                      className="group relative rounded-2xl overflow-hidden glass-panel border border-white/5 hover:border-white/20 transition-all duration-500 shadow-xl aspect-[3/4] cursor-pointer"
                     >
-                      TRY THIS ON
-                      <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
-                    </button>
-                  </div>
-                </motion.div>
-              ))}
-            </AnimatePresence>
-          </motion.div>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img 
+                        src={dress.imageUrl} 
+                        alt={dress.title}
+                        className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-700 ease-out"
+                      />
+                      
+                      {/* Gradient Overlay */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/20 to-transparent opacity-0 group-hover:opacity-90 transition-opacity duration-300 flex flex-col justify-end p-4 md:p-6" />
+
+                      {/* Info Overlay (Visible on Hover / Focus) */}
+                      <div className="absolute inset-0 flex flex-col justify-end p-4 md:p-6 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-y-4 group-hover:translate-y-0">
+                        <span className="text-[10px] text-purple-400 font-extrabold uppercase tracking-widest block mb-1">
+                          {dress.category?.name || 'Exclusive Gown'}
+                        </span>
+                        <h4 className="text-white font-extrabold text-sm md:text-base tracking-wide truncate">
+                          {dress.title}
+                        </h4>
+                        
+                        <span className="mt-3 inline-flex items-center gap-1 text-[10px] md:text-xs text-white bg-gradient-to-r from-purple-600 to-pink-500 font-bold tracking-widest px-3.5 py-2 rounded-xl shadow-lg self-start">
+                          TRY THIS ON
+                          <ArrowRight className="h-3 w-3" />
+                        </span>
+                      </div>
+
+                      {/* Mobile interactive indicator */}
+                      <div className="absolute bottom-3 right-3 md:hidden bg-black/60 backdrop-blur-md border border-white/10 rounded-full p-2 text-white shadow-lg">
+                        <Sparkles className="h-3.5 w-3.5 text-purple-400" />
+                      </div>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+              </motion.div>
+            )}
+          </section>
         )}
-      </section>
+      </main>
 
       {/* RECENT TRY-ONS */}
       {recentTryOns.length > 0 && (

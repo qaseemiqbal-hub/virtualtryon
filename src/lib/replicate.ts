@@ -30,7 +30,13 @@ export async function triggerTryOn({
   }
 
   try {
-    const fashnCategory = category === 'dresses' ? 'dresses' : category === 'lower_body' ? 'lower_body' : 'upper_body';
+    const fashnCategory = category === 'dresses' 
+      ? 'one-pieces' 
+      : category === 'lower_body' 
+      ? 'bottoms' 
+      : category === 'upper_body' 
+      ? 'tops' 
+      : 'auto';
     
     console.log(`🚀 [FASHN.ai] Launching try-on run for dress: "${dressTitle}"`);
     const res = await fetch('https://api.fashn.ai/v1/run', {

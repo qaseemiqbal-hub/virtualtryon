@@ -11,6 +11,8 @@ model GuestUser {
   id           String       @id @default(uuid())
   guestToken   String       @unique @map("guest_token")
   optionalName String?      @map("optional_name")
+  ipAddress    String?      @map("ip_address")
+  isBlocked    Boolean      @default(false) @map("is_blocked")
   createdAt    DateTime     @default(now()) @map("created_at")
   generations  Generation[]
 

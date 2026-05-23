@@ -4,6 +4,8 @@ export interface MockGuestUser {
   id: string;
   guestToken: string;
   optionalName: string | null;
+  ipAddress?: string | null;
+  isBlocked?: boolean;
   createdAt: Date;
 }
 
@@ -149,20 +151,32 @@ export const mockDb = {
   get generations() { return globalForMockDb.mockGenerations; },
 
   // Helper actions
-  async findOrCreateGuest(token: string, optionalName?: string | null) {
+  async findOrCreateGuest(token: string, optionalName?: string | null, ipAddress?: string | null) {
     let guest = globalForMockDb.mockGuests.find(g => g.guestToken === token);
     if (!guest) {
       guest = {
         id: uuidv4(),
         guestToken: token,
         optionalName: optionalName || null,
+        ipAddress: ipAddress || '127.0.0.1',
+        isBlocked: false,
         createdAt: new Date()
       };
       globalForMockDb.mockGuests.push(guest);
-    } else if (optionalName) {
-      guest.optionalName = optionalName;
+    } else {
+      if (ipAddress) guest.ipAddress = ipAddress;
+      if (optionalName) guest.optionalName = optionalName;
     }
     return guest;
+  },
+
+  async toggleGuestBlockStatus(userId: string, isBlocked: boolean) {
+    const idx = globalForMockDb.mockGuests.findIndex(g => g.id === userId);
+    if (idx !== -1) {
+      globalForMockDb.mockGuests[idx].isBlocked = isBlocked;
+      return globalForMockDb.mockGuests[idx];
+    }
+    return null;
   },
 
   async getDresses() {

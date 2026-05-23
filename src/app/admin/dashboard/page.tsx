@@ -46,6 +46,8 @@ interface GuestUser {
   id: string;
   guestToken: string;
   optionalName: string | null;
+  ipAddress?: string | null;
+  isBlocked?: boolean;
   createdAt: string;
   _count?: {
     generations: number;
@@ -75,6 +77,8 @@ export default function AdminDashboard() {
   const [dresses, setDresses] = useState<Dress[]>([]);
   const [users, setUsers] = useState<GuestUser[]>([]);
   const [generations, setGenerations] = useState<Generation[]>([]);
+
+  const [blockingUserId, setBlockingUserId] = useState<string | null>(null);
 
   // Category Form
   const [newCatName, setNewCatName] = useState('');
@@ -165,6 +169,29 @@ export default function AdminDashboard() {
       router.push('/admin');
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  // Toggle user block status
+  const handleToggleBlockUser = async (userId: string, currentBlockedState: boolean) => {
+    setBlockingUserId(userId);
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, isBlocked: !currentBlockedState }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setUsers(prev => prev.map(u => u.id === userId ? { ...u, isBlocked: !currentBlockedState } : u));
+      } else {
+        alert(data.message || 'Failed to update user block status.');
+      }
+    } catch (err) {
+      console.error('Error toggling block status:', err);
+      alert('Error updating user block status.');
+    } finally {
+      setBlockingUserId(null);
     }
   };
 
@@ -886,8 +913,11 @@ export default function AdminDashboard() {
                         <tr className="bg-white/5 border-b border-white/5 text-neutral-400 uppercase tracking-widest text-[9px] font-bold">
                           <th className="p-4">Guest Identifier</th>
                           <th className="p-4">Name</th>
+                          <th className="p-4">IP Address</th>
+                          <th className="p-4">Access Status</th>
                           <th className="p-4">Registered Date</th>
-                          <th className="p-4 text-right">Try-On Output Volume</th>
+                          <th className="p-4 text-center">Try-Ons Volume</th>
+                          <th className="p-4 text-right">Access Controls</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-white/5">
@@ -899,11 +929,40 @@ export default function AdminDashboard() {
                             <td className="p-4 font-bold text-white">
                               {u.optionalName || <span className="text-neutral-500 italic font-normal">Anonymous</span>}
                             </td>
+                            <td className="p-4 font-mono text-[11px] text-neutral-400">
+                              {u.ipAddress || <span className="text-neutral-600 italic">Unknown</span>}
+                            </td>
+                            <td className="p-4">
+                              {u.isBlocked ? (
+                                <span className="inline-flex items-center gap-1 py-1 px-2.5 rounded-full bg-red-500/10 border border-red-500/20 text-[10px] font-bold text-red-400">
+                                  <XCircle className="h-3 w-3" />
+                                  Blocked
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 py-1 px-2.5 rounded-full bg-green-500/10 border border-green-500/20 text-[10px] font-bold text-green-400">
+                                  <CheckCircle className="h-3 w-3" />
+                                  Active
+                                </span>
+                              )}
+                            </td>
                             <td className="p-4 font-light text-neutral-400">
                               {new Date(u.createdAt).toLocaleDateString()}
                             </td>
-                            <td className="p-4 text-right font-extrabold text-white">
+                            <td className="p-4 text-center font-extrabold text-white">
                               {u._count?.generations || 0}
+                            </td>
+                            <td className="p-4 text-right">
+                              <button
+                                disabled={blockingUserId === u.id}
+                                onClick={() => handleToggleBlockUser(u.id, !!u.isBlocked)}
+                                className={`px-3 py-1.5 rounded-lg text-[10px] font-bold tracking-wider uppercase border transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-40 disabled:scale-100 ${
+                                  u.isBlocked
+                                    ? 'bg-green-600/20 hover:bg-green-600/30 border-green-500/30 text-green-300'
+                                    : 'bg-red-600/20 hover:bg-red-600/30 border-red-500/30 text-red-300'
+                                }`}
+                              >
+                                {blockingUserId === u.id ? 'Updating...' : u.isBlocked ? 'Restore Access' : 'Restrict Access'}
+                              </button>
                             </td>
                           </tr>
                         ))}

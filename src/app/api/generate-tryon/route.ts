@@ -15,6 +15,42 @@ export async function POST(request: Request) {
       );
     }
 
+    // 0. Extract Client IP Address
+    const ip = request.headers.get('x-real-ip') || 
+               request.headers.get('x-forwarded-for')?.split(',')[0].trim() || 
+               '127.0.0.1';
+
+    // 0.1 Check if IP or Guest Token is blocked
+    let isBlocked = false;
+    try {
+      const blockedRecord = await prisma.guestUser.findFirst({
+        where: {
+          OR: [
+            { guestToken: guestToken, isBlocked: true },
+            { ipAddress: ip, isBlocked: true }
+          ]
+        }
+      });
+      if (blockedRecord) {
+        isBlocked = true;
+      }
+    } catch (e) {
+      const mockBlockedRecord = mockDb.guests.find(
+        g => (g.guestToken === guestToken && g.isBlocked === true) || 
+             (g.ipAddress === ip && g.isBlocked === true)
+      );
+      if (mockBlockedRecord) {
+        isBlocked = true;
+      }
+    }
+
+    if (isBlocked) {
+      return NextResponse.json(
+        { success: false, message: 'Your access to virtual try-on has been restricted by the administrator.' },
+        { status: 403 }
+      );
+    }
+
     // 1. Upload human image to Cloudinary (or fallback base64 in development)
     let uploadedHumanUrl;
     try {
@@ -90,13 +126,25 @@ export async function POST(request: Request) {
           data: {
             guestToken,
             optionalName: optionalName || null,
+            ipAddress: ip,
           },
         });
-      } else if (optionalName && guestUser.optionalName !== optionalName) {
-        guestUser = await prisma.guestUser.update({
-          where: { id: guestUser.id },
-          data: { optionalName },
-        });
+      } else {
+        // Update IP address on existing user if changed or empty
+        if (!guestUser.ipAddress || guestUser.ipAddress !== ip) {
+          guestUser = await prisma.guestUser.update({
+            where: { id: guestUser.id },
+            data: { 
+              ipAddress: ip,
+              optionalName: optionalName || guestUser.optionalName
+            },
+          });
+        } else if (optionalName && guestUser.optionalName !== optionalName) {
+          guestUser = await prisma.guestUser.update({
+            where: { id: guestUser.id },
+            data: { optionalName },
+          });
+        }
       }
 
       // Create Generation record
@@ -117,7 +165,7 @@ export async function POST(request: Request) {
     } catch (prismaErr) {
       console.log('⚠️ [Try-On API] Prisma DB save failed. Saving in MockDB:', prismaErr);
 
-      const guestUser = await mockDb.findOrCreateGuest(guestToken, optionalName);
+      const guestUser = await mockDb.findOrCreateGuest(guestToken, optionalName, ip);
 
       const generation = await mockDb.addGeneration({
         guestUserId: guestUser.id,

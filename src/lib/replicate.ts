@@ -48,7 +48,7 @@ export async function triggerTryOn({
       body: JSON.stringify({
         model_name: 'tryon-v1.6', // ultra-fast & highly efficient V1.6 model
         inputs: {
-          product_image: dressImageUrl,
+          garment_image: dressImageUrl,
           model_image: customerImageUrl,
           category: fashnCategory,
         },

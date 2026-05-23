@@ -120,10 +120,6 @@ export default function FashionStudio() {
     const savedName = localStorage.getItem('aura_guest_name');
     if (savedName) {
       setGuestName(savedName);
-    } else {
-      // Delay showing welcome modal slightly for dramatic premium effect
-      const timer = setTimeout(() => setShowNameModal(true), 1200);
-      return () => clearTimeout(timer);
     }
 
     // Load recent try-ons from local storage
@@ -390,22 +386,7 @@ export default function FashionStudio() {
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
-          {guestName && (
-            <div className="hidden sm:flex items-center gap-2 py-1.5 px-3 rounded-full bg-white/5 border border-white/5 text-sm text-neutral-300">
-              <User className="h-3.5 w-3.5 text-purple-400" />
-              <span>Hello, <strong className="text-white">{guestName}</strong></span>
-            </div>
-          )}
-
-          <a 
-            href="/admin" 
-            className="flex items-center gap-1.5 text-xs tracking-wider text-neutral-400 hover:text-white transition-colors bg-white/5 hover:bg-white/10 px-3.5 py-2 rounded-lg border border-white/5"
-          >
-            <Lock className="h-3.5 w-3.5" />
-            ADMIN PORTAL
-          </a>
-        </div>
+        {/* Admin Portal is accessible directly via URL, keeping the landing page clean */}
       </header>
 
       {/* HERO SECTION */}
@@ -612,66 +593,7 @@ export default function FashionStudio() {
         )}
       </main>
 
-      {/* RECENT TRY-ONS */}
-      {recentTryOns.length > 0 && (
-        <section className="mt-20 px-6 md:px-12 max-w-7xl mx-auto w-full">
-          <div className="border-t border-white/5 pt-12">
-            <h2 className="text-lg font-bold tracking-wider uppercase text-neutral-300 mb-6 flex items-center gap-2">
-              <Heart className="h-5 w-5 text-pink-500" />
-              Your Recent Try-Ons
-            </h2>
-            
-            <div className="flex gap-6 overflow-x-auto pb-4 scrollbar-thin">
-              {recentTryOns.map((t) => (
-                <div key={t.id} className="min-w-[160px] md:min-w-[200px] group relative rounded-xl overflow-hidden glass-panel border border-white/5 hover:border-white/15 transition-all">
-                  <div className="relative aspect-[3/4] bg-neutral-950">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img 
-                      src={t.imageUrl} 
-                      alt="Generated Try-On"
-                      className="w-full h-full object-cover"
-                    />
-                    
-                    {/* Action Hover Panel */}
-                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col items-center justify-center gap-2 p-4 text-center">
-                      <p className="text-white text-xs font-bold truncate w-full">{t.dressTitle}</p>
-                      
-                      <div className="flex gap-2 mt-2">
-                        <button
-                          onClick={() => {
-                            // Find corresponding dress
-                            const dress = dresses.find(d => d.imageUrl === t.dressImageUrl);
-                            setSelectedDress(dress || {
-                              id: '', title: t.dressTitle, imageUrl: t.dressImageUrl, tags: [], categoryId: '', description: ''
-                            });
-                            setUploadedImage(t.originalUrl);
-                            setGeneratedResult(t.imageUrl);
-                            setIsGenerating(false);
-                          }}
-                          className="h-8 w-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors text-white"
-                          title="View Result"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </button>
-                        <a
-                          href={t.imageUrl}
-                          download={`aura-tryon-${t.id}.jpg`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="h-8 w-8 rounded-full bg-gradient-to-r from-purple-600 to-pink-500 flex items-center justify-center text-white"
-                          title="Download"
-                        >
-                          <Download className="h-4 w-4" />
-                        </a>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
+      {/* Recent try-ons removed for user privacy */}
 
       {/* TRY-ON SIDE-DRAWER */}
       <AnimatePresence>
@@ -835,25 +757,7 @@ export default function FashionStudio() {
 
                 </div>
 
-                {/* Additional custom name capture for the session */}
-                {!isGenerating && !generatedResult && (
-                  <div className="bg-white/5 border border-white/5 p-4 rounded-xl flex flex-col gap-2">
-                    <label className="text-xs font-bold text-neutral-300 uppercase tracking-wider flex items-center gap-1">
-                      <User className="h-3 w-3 text-purple-400" />
-                      Try-On Guest Name
-                    </label>
-                    <input 
-                      type="text" 
-                      placeholder="Enter your name (optional)..."
-                      value={guestName}
-                      onChange={(e) => {
-                        setGuestName(e.target.value);
-                        localStorage.setItem('aura_guest_name', e.target.value);
-                      }}
-                      className="bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500/50"
-                    />
-                  </div>
-                )}
+                {/* Try-on guest name section removed */}
 
               </div>
 
@@ -908,67 +812,7 @@ export default function FashionStudio() {
         )}
       </AnimatePresence>
 
-      {/* GUEST NAME MODAL (ON ARRIVAL) */}
-      <AnimatePresence>
-        {showNameModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            {/* Backdrop */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 0.6 }}
-              exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-black backdrop-blur-md"
-            />
-
-            {/* Modal */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="w-full max-w-md relative z-10 glass-panel rounded-2xl overflow-hidden p-6 md:p-8 flex flex-col gap-6 shadow-2xl"
-            >
-              <div className="flex flex-col items-center text-center gap-3">
-                <div className="h-12 w-12 rounded-2xl bg-gradient-to-tr from-purple-600 to-pink-500 flex items-center justify-center text-white shadow-lg">
-                  <Sparkles className="h-6 w-6" />
-                </div>
-                <div>
-                  <h3 className="text-white font-extrabold text-xl tracking-wide">Welcome to AURA</h3>
-                  <p className="text-neutral-400 text-xs font-light mt-1">AI-Powered Virtual Fashion Try-On</p>
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Your Name (Optional)</label>
-                <input 
-                  type="text" 
-                  placeholder="E.g., Charlotte..."
-                  value={nameInput}
-                  onChange={(e) => setNameInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleSaveName();
-                  }}
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-purple-500/50 transition-colors"
-                />
-              </div>
-
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowNameModal(false)}
-                  className="flex-1 bg-white/5 hover:bg-white/10 border border-white/5 text-xs font-bold tracking-wider text-neutral-400 hover:text-white py-3 rounded-xl transition-colors uppercase"
-                >
-                  Skip
-                </button>
-                <button
-                  onClick={handleSaveName}
-                  className="flex-1 bg-gradient-to-r from-purple-600 to-pink-500 hover:shadow-lg text-xs font-bold tracking-wider text-white py-3 rounded-xl transition-all uppercase"
-                >
-                  Enter Studio
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+      {/* Welcome Name Modal Removed */}
 
     </div>
   );
